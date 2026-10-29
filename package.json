@@ -1,0 +1,73 @@
+{
+  "name": "cortico-world-bili-live-reminder",
+  "version": "0.2.5",
+  "type": "module",
+  "description": "Bilibili live-stream reminders for Cortico: follow streamers by UID and let the bot tell the user when they go live. Read-only public status API; no login, cookie or key.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zyc0327/cortico-world-bili-live-reminder.git"
+  },
+  "homepage": "https://github.com/zyc0327/cortico-world-bili-live-reminder#readme",
+  "bugs": {
+    "url": "https://github.com/zyc0327/cortico-world-bili-live-reminder/issues"
+  },
+  "keywords": [
+    "cortico-world",
+    "cortico",
+    "bilibili",
+    "live",
+    "reminder",
+    "notification"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@11.28.6",
+  "main": "./src/index.ts",
+  "cortico": {
+    "kind": "world",
+    "api": 6,
+    "displayName": "B 站开播提醒",
+    "icon": "assets/icon.svg",
+    "describe": "describe.json",
+    "webUiClient": "dist/webui.js",
+    "tags": [
+      "experimental",
+      "streaming"
+    ],
+    "locales": {
+      "zh": {
+        "displayName": "B 站开播提醒",
+        "description": "关注 B 站主播的 UID，开播时让 Coo 提醒你；只读公开开播状态，不需要登录，也不读 cookie 或密钥。"
+      },
+      "en": {
+        "displayName": "Bilibili Live Reminders",
+        "description": "Follow Bilibili streamers by UID and let Coo tell you when they go live. Read-only public status API; no login, cookie or key."
+      }
+    }
+  },
+  "files": [
+    "src",
+    "dist",
+    "assets",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "describe.json"
+  ],
+  "scripts": {
+    "build:webui": "esbuild src/webui/client.ts --bundle --format=esm --platform=browser --target=es2022 --outfile=dist/webui.js",
+    "describe": "tsx scripts/describe.ts",
+    "test": "esbuild src/webui/client.ts --bundle --format=esm --platform=browser --target=es2022 --outfile=dist/webui.js && vitest run",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.web.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "cortico": "^0.2.10",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

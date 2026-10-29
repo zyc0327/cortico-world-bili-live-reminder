@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Bilibili live reminder bell">
+  <!-- Original artwork for cortico-world-bili-live-reminder, released under the MIT license. -->
+  <rect width="64" height="64" rx="14" fill="#FB7299"/>
+  <path d="M32 17a12 12 0 0 0-12 12v7l-4 5h32l-4-5v-7a12 12 0 0 0-12-12z" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M27 45a5 5 0 0 0 10 0" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="32" cy="14" r="2.6" fill="#FFFFFF"/>
+  <circle cx="48" cy="17" r="4" fill="#FFFFFF"/>
+  <circle cx="48" cy="17" r="1.6" fill="#FB7299"/>
+</svg>

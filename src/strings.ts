@@ -1,0 +1,58 @@
+/** 给操作员看的文案;模型可见的文本不在这里。 */
+import { pick, type Language } from 'cortico/core/language.ts';
+
+const zh = {
+  moduleLabel: 'B 站开播提醒',
+  configTitle: 'B 站开播提醒 · 检查设置',
+  configDescription: '关注列表在 World 页的「关注管理」面板里新增和删除;这里调检查间隔、启动提醒与播报链接。改完一项后请停留约 1 秒,看到「✓ 已写回 config.json」再离开本页——Coopanion 会在切换页面时丢弃尚未提交的修改。',
+  panelTitle: '关注管理',
+  panelDescription: '输入一位主播的 UID 后点「新增」。列表显示昵称、直播间号与当前状态;点「删除」取消提醒。启动时是否汇总已在播的主播,在「配置」里打开。',
+  intervalTitle: '检查间隔(秒)',
+  intervalDescription: '每隔多少秒查一次开播状态。范围 30–600 秒。间隔越短提醒越及时,对 B 站接口的请求也越多;改完后从下一次检查起按新间隔运行。',
+  notifyOnStartTitle: '启动时已在播也提醒',
+  notifyOnStartDescription: '默认打开。启动后的第一次检查会把已经在播的主播汇总成一条提醒;运行中打开会在下一次检查发一条「当前在播汇总」;关闭后不再发这类汇总。',
+  includeRoomLinkTitle: '播报时附带直播间链接',
+  includeRoomLinkDescription: '打开后,Coo 在开播提醒、bili_live_status 与关注回执里带上直播间链接;关闭则只报主播名和标题。World 页的关注列表不受影响。',
+  suffixSeconds: '秒',
+  lampLabel: '开播检查',
+  lampStopped: '未挂载或已停用。',
+  lampNoUids: '还没有填写主播 UID。',
+  lampWatching: (count: number, seconds: number) => `关注 ${count} 位,每 ${seconds} 秒检查一次。`,
+  lampLastError: (message: string) => `上次检查失败:${message}`,
+  lampLastCheck: (at: string) => `上次检查:${at}`,
+  promptDocTitle: 'B 站开播提醒 · 环境提示词',
+  promptDocDescription: '告诉 Coo 收到开播事件时怎么提醒,以及什么时候用查询和关注工具。',
+  varIntervalDescription: '当前检查间隔(秒),此刻的值。',
+  varFollowedDescription: '当前关注的主播数量,此刻的值。',
+  varLinkDescription: '播报时是否附带直播间链接(开/关),此刻的值。',
+  varStartupDescription: '启动时已在播是否提醒(开/关),此刻的值。',
+};
+
+const en: typeof zh = {
+  moduleLabel: 'Bilibili Live Reminders',
+  configTitle: 'Bilibili Live Reminders · Checks',
+  configDescription: 'Manage follows in the "Follows" panel on the World page; this section sets the check interval, the startup reminder and the room-link option. After editing a row, wait about 1 second for the "✓ written to config.json" message before leaving the page — Coopanion discards pending edits when you switch pages.',
+  panelTitle: 'Follows',
+  panelDescription: 'Enter a streamer UID and press Add. The list shows the nickname, room ID and current status; Delete stops the reminders. Turn the startup summary on or off in Settings.',
+  intervalTitle: 'Check interval (seconds)',
+  intervalDescription: 'How often to check live status. Range 30–600 seconds. Shorter intervals are more timely but send more requests to Bilibili; a new value applies from the next check on.',
+  notifyOnStartTitle: 'Remind about already-live streamers at startup',
+  notifyOnStartDescription: 'On by default. The first check after startup sends one summary of streamers already live; turning it on while running sends a "currently live" summary on the next check; turning it off stops these summaries.',
+  includeRoomLinkTitle: 'Include room links in messages',
+  includeRoomLinkDescription: 'When on, Coo includes the live-room link in reminders, bili_live_status and follow receipts; when off, only the name and title. The follows list on the World page is unaffected.',
+  suffixSeconds: 's',
+  lampLabel: 'Live check',
+  lampStopped: 'Not mounted or disabled.',
+  lampNoUids: 'No streamer UID configured yet.',
+  lampWatching: (count: number, seconds: number) => `Following ${count}; checking every ${seconds} s.`,
+  lampLastError: (message: string) => `Last check failed: ${message}`,
+  lampLastCheck: (at: string) => `Last check: ${at}`,
+  promptDocTitle: 'Bilibili Live Reminders · Environment prompt',
+  promptDocDescription: 'Tells Coo how to phrase a live reminder and when to use the status and follow tools.',
+  varIntervalDescription: 'Current check interval in seconds, right now.',
+  varFollowedDescription: 'Number of streamers currently followed, right now.',
+  varLinkDescription: 'Whether messages include live-room links (on/off), right now.',
+  varStartupDescription: 'Whether the startup summary is on (on/off), right now.',
+};
+
+export const text = (language: Language) => pick(language, { zh, en });
