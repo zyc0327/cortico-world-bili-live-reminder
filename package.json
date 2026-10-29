@@ -33,6 +33,10 @@
   },
   "packageManager": "pnpm@11.28.6",
   "main": "./src/index.ts",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "cortico": {
     "kind": "world",
     "api": 6,
