@@ -26,6 +26,7 @@ import {
 } from './config.ts';
 import {
   fetchLiveSnapshots,
+  MAX_UID,
   parseUids,
   roomLink,
   serializeUids,
@@ -38,7 +39,8 @@ const ENV_PROMPT_FILE = fileURLToPath(new URL('./ENV_PROMPT.md', import.meta.url
 
 export const WORLD_ID = 'bili-live-reminder';
 
-const UID_MAX = 4_294_967_295;
+const UID_MAX = MAX_UID;
+const UID_RANGE_ERROR = `UID 必须是 1 到 ${MAX_UID} 之间的整数。`;
 const DEFAULT_TIMEOUT_MS = 15_000;
 /** 等进程/会话就绪后再做第一次检查,避免启动汇总在装配期丢掉。 */
 const INITIAL_POLL_DELAY_MS = 5_000;
@@ -514,7 +516,7 @@ export class BiliLiveReminderWorld implements World {
       }
       case 'add': {
         const uid = toUid(first);
-        if (uid === null) throw new Error('UID 必须是 1 到 4294967295 之间的整数。');
+        if (uid === null) throw new Error(UID_RANGE_ERROR);
         const current = this.uids();
         if (current.includes(uid)) throw new Error(`已经订阅 UID ${uid} 了。`);
         if (current.length >= MAX_FOLLOWED_UIDS) {
@@ -536,7 +538,7 @@ export class BiliLiveReminderWorld implements World {
       }
       case 'remove': {
         const uid = toUid(first);
-        if (uid === null) throw new Error('UID 必须是 1 到 4294967295 之间的整数。');
+        if (uid === null) throw new Error(UID_RANGE_ERROR);
         const current = this.uids();
         if (current.includes(uid)) {
           this.persistConfig({ uids: serializeUids(current.filter((item) => item !== uid)) });
@@ -597,7 +599,7 @@ export class BiliLiveReminderWorld implements World {
     let filter: number | null = null;
     if (args.uid !== undefined && args.uid !== null) {
       filter = toUid(args.uid);
-      if (filter === null) return { text: 'UID 必须是 1 到 4294967295 之间的整数。', failed: true };
+      if (filter === null) return { text: UID_RANGE_ERROR, failed: true };
       if (!uids.includes(filter)) {
         return `没有关注 UID ${filter}。当前关注:${uids.join(', ')}。`;
       }
@@ -632,7 +634,7 @@ export class BiliLiveReminderWorld implements World {
 
   private async followTool(args: Record<string, unknown>): Promise<string | ToolOutcome> {
     const uid = toUid(args.uid);
-    if (uid === null) return { text: 'UID 必须是 1 到 4294967295 之间的整数。', failed: true };
+    if (uid === null) return { text: UID_RANGE_ERROR, failed: true };
 
     const current = this.uids();
     if (current.includes(uid)) {
@@ -674,7 +676,7 @@ export class BiliLiveReminderWorld implements World {
 
   private async unfollowTool(args: Record<string, unknown>): Promise<string | ToolOutcome> {
     const uid = toUid(args.uid);
-    if (uid === null) return { text: 'UID 必须是 1 到 4294967295 之间的整数。', failed: true };
+    if (uid === null) return { text: UID_RANGE_ERROR, failed: true };
 
     const current = this.uids();
     if (!current.includes(uid)) {

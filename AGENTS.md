@@ -16,7 +16,7 @@ to regenerate `describe.json`.
 - [ ] **Tags**: `cortico.tags` lists `streaming` (plain) only. No notice or warning tag applies:
   the extension reads only public live status and does not put third-party text into an `internal`
   event.
-- [ ] **CHANGELOG.md** has a `## 0.2.5` section for the version being published.
+- [ ] **CHANGELOG.md** has a `## 0.2.6` section for the version being published.
 - [ ] **`os`**: omitted; the package is pure Node plus a browser panel and runs on every platform
   Coopanion supports.
 - [ ] **WebUI panel**: `src/webui/client.ts` declares the `subscriptions` panel; `dist/webui.js` is

@@ -10,6 +10,9 @@ import type {
   WebUiPanelContext,
 } from 'cortico/web/shared/client-panel.ts';
 
+/** B 站新 UID 是 16 位;与 src/bilibili.ts 的 MAX_UID 保持一致。 */
+const MAX_UID = 9_007_199_254_740_991;
+
 interface SubscriptionItem {
   uid: number;
   uname: string;
@@ -83,7 +86,7 @@ const zh: PanelText = {
   loading: '加载中…',
   loadFailed: '列表加载失败,请重试。',
   needUid: '请先输入 UID。',
-  invalid: 'UID 必须是 1 到 4294967295 之间的整数。',
+  invalid: `UID 必须是 1 到 ${MAX_UID} 之间的整数。`,
   added: (name) => `已新增「${name}」。`,
   removed: (name) => `已删除「${name}」。`,
   confirmTitle: '取消关注',
@@ -114,7 +117,7 @@ const en: PanelText = {
   loading: 'Loading…',
   loadFailed: 'Could not load the list. Try again.',
   needUid: 'Enter a UID first.',
-  invalid: 'UID must be an integer between 1 and 4294967295.',
+  invalid: `UID must be an integer between 1 and ${MAX_UID}.`,
   added: (name) => `Added "${name}".`,
   removed: (name) => `Removed "${name}".`,
   confirmTitle: 'Unfollow',
@@ -252,12 +255,12 @@ const subscriptionsPanel: WebUiPanel = {
         show(t.needUid, true);
         return;
       }
-      if (!/^\d{1,10}$/.test(raw)) {
+      if (!/^\d{1,16}$/.test(raw)) {
         show(t.invalid, true);
         return;
       }
       const uid = Number(raw);
-      if (!Number.isSafeInteger(uid) || uid < 1 || uid > 4_294_967_295) {
+      if (!Number.isSafeInteger(uid) || uid < 1 || uid > MAX_UID) {
         show(t.invalid, true);
         return;
       }

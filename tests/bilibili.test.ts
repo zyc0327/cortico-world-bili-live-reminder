@@ -39,10 +39,18 @@ describe('parseUids', () => {
     });
   });
 
+  it('接受 16 位新 UID', () => {
+    expect(parseUids('3537115310721781')).toEqual({
+      uids: [3537115310721781],
+      invalid: [],
+      overflow: 0,
+    });
+  });
+
   it('拒绝非数字、0 与超出范围的 UID', () => {
-    const result = parseUids('abc 0 4294967296 12x');
+    const result = parseUids('abc 0 9007199254740992 12x');
     expect(result.uids).toEqual([]);
-    expect(result.invalid).toEqual(['abc', '0', '4294967296', '12x']);
+    expect(result.invalid).toEqual(['abc', '0', '9007199254740992', '12x']);
   });
 
   it('超过 50 位时只收前 50 位并报告溢出', () => {
@@ -64,6 +72,7 @@ describe('URL 与文本', () => {
     const url = new URL(statusUrl([2, 7777]));
     expect(url.searchParams.getAll('uids[]')).toEqual(['2', '7777']);
     expect(statusUrl([2])).toContain('uids%5B%5D=2');
+    expect(new URL(statusUrl([3537115310721781])).searchParams.get('uids[]')).toBe('3537115310721781');
   });
 
   it('兜底接口用 mid 参数', () => {

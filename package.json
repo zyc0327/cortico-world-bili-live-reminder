@@ -1,6 +1,6 @@
 {
   "name": "cortico-world-bili-live-reminder",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "type": "module",
   "description": "Bilibili live-stream reminders for Cortico: follow streamers by UID and let the bot tell the user when they go live. Read-only public status API; no login, cookie or key.",
   "license": "MIT",

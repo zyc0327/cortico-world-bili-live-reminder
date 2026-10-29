@@ -15,7 +15,7 @@
           "uid": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 4294967295,
+            "maximum": 9007199254740991,
             "description": "Only show this followed UID. Omit to show every followed streamer."
           }
         }
@@ -38,7 +38,7 @@
           "uid": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 4294967295,
+            "maximum": 9007199254740991,
             "description": "The numeric Bilibili user UID, for example 2. It is the number in the user space URL."
           }
         },
@@ -64,7 +64,7 @@
           "uid": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 4294967295,
+            "maximum": 9007199254740991,
             "description": "The numeric Bilibili user UID to remove from the follow list."
           }
         },

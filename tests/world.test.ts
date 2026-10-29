@@ -297,6 +297,24 @@ describe('B 站开播提醒 World', () => {
     expect(String(again)).toContain('已经关注');
   });
 
+  it('支持 16 位新 UID', async () => {
+    const uid = 3_537_115_310_721_781;
+    const { world, cfg } = makeWorld(
+      { uids: '' },
+      entriesFetcher(() => ({
+        [String(uid)]: statusEntry(uid, { uname: '新主播', title: '十六位', live_status: 0 }),
+      })),
+    );
+    await startWorld(world);
+
+    const receipt = await tool(world, 'bili_live_follow').handler({ uid }, call);
+    expect(String(receipt)).toContain(`已关注 UID ${uid}`);
+    expect(cfg.uids).toBe(String(uid));
+
+    const view = (await world.webUi('zh').invoke!('subscriptions', 'list', [])) as SubscriptionView;
+    expect(view.items[0]).toMatchObject({ uid, uname: '新主播' });
+  });
+
   it('bili_live_follow 拒绝不存在的 UID 和非法 UID', async () => {
     const fetchImpl: FetchLike = async (input) => {
       if (String(input).includes('get_status_info_by_uids')) return jsonResponse({ code: 0, data: {} });

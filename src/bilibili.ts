@@ -10,6 +10,9 @@ export const STATUS_ENDPOINT = 'https://api.live.bilibili.com/room/v1/Room/get_s
 export const ROOM_INFO_ENDPOINT = 'https://api.live.bilibili.com/room/v1/Room/getRoomInfoOld';
 export const ANCHOR_INFO_ENDPOINT = 'https://api.live.bilibili.com/live_user/v1/UserInfo/get_anchor_in_room';
 
+/** B 站新 UID 是 16 位;这是 JS 能精确表示的最大安全整数。 */
+export const MAX_UID = 9_007_199_254_740_991;
+
 /** 浏览器 UA 与 Referer:公开接口在没有它们时更容易回 412。 */
 export const REQUEST_HEADERS: Record<string, string> = {
   Accept: 'application/json, text/plain, */*',
@@ -76,12 +79,12 @@ export function parseUids(raw: unknown): UidParseResult {
   let overflow = 0;
   for (const token of source.split(/[\s,，;；]+/)) {
     if (token === '') continue;
-    if (!/^\d{1,10}$/.test(token)) {
+    if (!/^\d{1,16}$/.test(token)) {
       invalid.push(token);
       continue;
     }
     const uid = Number(token);
-    if (!Number.isSafeInteger(uid) || uid < 1 || uid > 4_294_967_295) {
+    if (!Number.isSafeInteger(uid) || uid < 1 || uid > MAX_UID) {
       invalid.push(token);
       continue;
     }

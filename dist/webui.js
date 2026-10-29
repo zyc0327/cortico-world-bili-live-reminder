@@ -1,4 +1,5 @@
 // src/webui/client.ts
+var MAX_UID = 9007199254740991;
 var zh = {
   title: "\u5173\u6CE8\u7BA1\u7406",
   description: "\u8F93\u5165\u4E00\u4F4D\u4E3B\u64AD\u7684 UID \u540E\u70B9\u300C\u65B0\u589E\u300D\u3002\u5217\u8868\u663E\u793A\u6635\u79F0\u3001\u76F4\u64AD\u95F4\u53F7\u4E0E\u5F53\u524D\u72B6\u6001;\u70B9\u300C\u5220\u9664\u300D\u53D6\u6D88\u63D0\u9192\u3002",
@@ -22,7 +23,7 @@ var zh = {
   loading: "\u52A0\u8F7D\u4E2D\u2026",
   loadFailed: "\u5217\u8868\u52A0\u8F7D\u5931\u8D25,\u8BF7\u91CD\u8BD5\u3002",
   needUid: "\u8BF7\u5148\u8F93\u5165 UID\u3002",
-  invalid: "UID \u5FC5\u987B\u662F 1 \u5230 4294967295 \u4E4B\u95F4\u7684\u6574\u6570\u3002",
+  invalid: `UID \u5FC5\u987B\u662F 1 \u5230 ${MAX_UID} \u4E4B\u95F4\u7684\u6574\u6570\u3002`,
   added: (name) => `\u5DF2\u65B0\u589E\u300C${name}\u300D\u3002`,
   removed: (name) => `\u5DF2\u5220\u9664\u300C${name}\u300D\u3002`,
   confirmTitle: "\u53D6\u6D88\u5173\u6CE8",
@@ -52,7 +53,7 @@ var en = {
   loading: "Loading\u2026",
   loadFailed: "Could not load the list. Try again.",
   needUid: "Enter a UID first.",
-  invalid: "UID must be an integer between 1 and 4294967295.",
+  invalid: `UID must be an integer between 1 and ${MAX_UID}.`,
   added: (name) => `Added "${name}".`,
   removed: (name) => `Removed "${name}".`,
   confirmTitle: "Unfollow",
@@ -172,12 +173,12 @@ var subscriptionsPanel = {
         show(t.needUid, true);
         return;
       }
-      if (!/^\d{1,10}$/.test(raw)) {
+      if (!/^\d{1,16}$/.test(raw)) {
         show(t.invalid, true);
         return;
       }
       const uid = Number(raw);
-      if (!Number.isSafeInteger(uid) || uid < 1 || uid > 4294967295) {
+      if (!Number.isSafeInteger(uid) || uid < 1 || uid > MAX_UID) {
         show(t.invalid, true);
         return;
       }
