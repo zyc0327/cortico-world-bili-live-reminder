@@ -12,6 +12,14 @@
   "bugs": {
     "url": "https://github.com/zyc0327/cortico-world-bili-live-reminder/issues"
   },
+  "author": {
+    "name": "近人可读",
+    "email": "15122339970@163.com"
+  },
+  "contact": {
+    "qq": "130980327",
+    "email": "15122339970@163.com"
+  },
   "keywords": [
     "cortico-world",
     "cortico",
@@ -58,9 +66,9 @@
   ],
   "scripts": {
     "build:webui": "esbuild src/webui/client.ts --bundle --format=esm --platform=browser --target=es2022 --outfile=dist/webui.js",
-    "describe": "tsx scripts/describe.ts",
     "test": "esbuild src/webui/client.ts --bundle --format=esm --platform=browser --target=es2022 --outfile=dist/webui.js && vitest run",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.web.json"
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.web.json",
+    "describe": "tsx scripts/describe.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
