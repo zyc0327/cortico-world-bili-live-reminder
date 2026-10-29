@@ -41,7 +41,6 @@
     "describe": "describe.json",
     "webUiClient": "dist/webui.js",
     "tags": [
-      "experimental",
       "streaming"
     ],
     "locales": {

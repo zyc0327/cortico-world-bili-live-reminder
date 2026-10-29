@@ -13,9 +13,9 @@ to regenerate `describe.json`.
 - [ ] **Contract version**: `cortico.api` is `6`, the current World contract.
 - [ ] **Self-description**: `cortico.describe` points to `describe.json`; `tests/world.test.ts`
   compares it with the code and `ENV_PROMPT.md` and it must match exactly.
-- [ ] **Tags**: `cortico.tags` lists `experimental` (notice) and `streaming` (plain). No warning
-  tag applies: the extension reads only public live status and does not put third-party text into
-  an `internal` event.
+- [ ] **Tags**: `cortico.tags` lists `streaming` (plain) only. No notice or warning tag applies:
+  the extension reads only public live status and does not put third-party text into an `internal`
+  event.
 - [ ] **CHANGELOG.md** has a `## 0.2.5` section for the version being published.
 - [ ] **`os`**: omitted; the package is pure Node plus a browser panel and runs on every platform
   Coopanion supports.
