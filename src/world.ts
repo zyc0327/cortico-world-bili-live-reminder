@@ -18,9 +18,14 @@ import { nowIso } from 'cortico/core/util.ts';
 import type { DeepPartial } from 'cortico/world.ts';
 import {
   DEFAULT_POLL_SECONDS,
+  DEFAULT_REPEAT_COUNT,
+  DEFAULT_REPEAT_SECONDS,
   MAX_FOLLOWED_UIDS,
   MAX_POLL_SECONDS,
+  MAX_REPEAT_COUNT,
+  MAX_REPEAT_SECONDS,
   MIN_POLL_SECONDS,
+  MIN_REPEAT_SECONDS,
   biliLiveReminderConfigGroup,
   type BiliLiveReminderConfigSection,
 } from './config.ts';
@@ -108,6 +113,28 @@ export const BILI_LIVE_REMINDER_TOOL_DECLS: ReadonlyArray<Omit<ToolDef, 'handler
       required: ['uid'],
     },
   },
+  {
+    name: 'bili_live_ack',
+    description:
+      'Acknowledge pending live reminders so the World stops repeating them. Call this only after the user presses the "知道了" button or says they saw the reminder; do not call it when the question was merely closed. Pass name (the streamer shown in the reminder) or uid to acknowledge one, or omit both to acknowledge every pending reminder (for example after a startup summary).',
+    tags: ['write'],
+    parameters: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Streamer name shown in the reminder. Omit when acknowledging every pending reminder.',
+        },
+        uid: {
+          type: 'integer',
+          minimum: 1,
+          maximum: UID_MAX,
+          description: 'The followed UID to acknowledge. Omit when acknowledging every pending reminder.',
+        },
+      },
+    },
+  },
 ];
 
 export interface BiliLiveReminderOptions {
@@ -120,6 +147,8 @@ export interface BiliLiveReminderOptions {
   fetch?: FetchLike;
   /** 单次请求超时,毫秒。 */
   timeoutMs?: number;
+  /** 测试可替换的时钟;缺省用 Date.now。 */
+  now?: () => number;
 }
 
 type LookupResult =
@@ -128,6 +157,12 @@ type LookupResult =
   | { kind: 'error'; message: string };
 
 type SummaryKind = 'startup' | 'current';
+
+interface PendingReminder {
+  snapshot: LiveSnapshot;
+  lastSentAt: number;
+  repeats: number;
+}
 
 /** 关注管理面板里的一行。 */
 export interface SubscriptionItem {
@@ -171,6 +206,7 @@ export class BiliLiveReminderWorld implements World {
   private readonly persistConfig: (patch: DeepPartial<BiliLiveReminderConfigSection>) => void;
   private readonly fetchImpl: FetchLike | undefined;
   private readonly timeoutMs: number;
+  private readonly now: () => number;
 
   private host: WorldHost | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -189,6 +225,8 @@ export class BiliLiveReminderWorld implements World {
   private failures = 0;
   /** 启动时读一次;设置页说这项下次启动生效。 */
   private notifyOnStart = false;
+  /** 已发出、还没被「知道了」确认的提醒;按 uid 记录,用于重复提醒。 */
+  private pending = new Map<number, PendingReminder>();
 
   constructor(options: BiliLiveReminderOptions) {
     this.cfg = options.cfg;
@@ -196,6 +234,7 @@ export class BiliLiveReminderWorld implements World {
     this.persistConfig = options.persist;
     this.fetchImpl = options.fetch;
     this.timeoutMs = Math.max(1_000, options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+    this.now = options.now ?? Date.now;
   }
 
   envPromptVars(): Record<string, string> {
@@ -204,6 +243,8 @@ export class BiliLiveReminderWorld implements World {
       'bili_live_reminder.followedCount': String(this.uids().length),
       'bili_live_reminder.includeRoomLink': this.includeRoomLink() ? '开' : '关',
       'bili_live_reminder.notifyOnStart': this.cfg.notifyAlreadyLiveOnStart !== false ? '开' : '关',
+      'bili_live_reminder.repeatCount': String(this.repeatCount()),
+      'bili_live_reminder.repeatIntervalSec': String(Math.round(this.repeatIntervalMs() / 1000)),
     };
   }
 
@@ -220,6 +261,10 @@ export class BiliLiveReminderWorld implements World {
       {
         ...BILI_LIVE_REMINDER_TOOL_DECLS[2],
         handler: (args) => this.unfollowTool(args),
+      },
+      {
+        ...BILI_LIVE_REMINDER_TOOL_DECLS[3],
+        handler: (args) => this.ackTool(args),
       },
     ];
   }
@@ -261,6 +306,8 @@ export class BiliLiveReminderWorld implements World {
             { name: 'bili_live_reminder.followedCount', description: t.varFollowedDescription },
             { name: 'bili_live_reminder.includeRoomLink', description: t.varLinkDescription },
             { name: 'bili_live_reminder.notifyOnStart', description: t.varStartupDescription },
+            { name: 'bili_live_reminder.repeatCount', description: t.varRepeatCountDescription },
+            { name: 'bili_live_reminder.repeatIntervalSec', description: t.varRepeatIntervalDescription },
           ],
         },
       ],
@@ -276,6 +323,7 @@ export class BiliLiveReminderWorld implements World {
     this.lastWarnings = [];
     this.snapshots.clear();
     this.baseline.clear();
+    this.pending.clear();
     this.baselineReady = false;
     this.notifyOnStart = this.cfg.notifyAlreadyLiveOnStart !== false;
 
@@ -295,6 +343,7 @@ export class BiliLiveReminderWorld implements World {
     this.abort?.abort();
     this.abort = null;
     this.host = null;
+    this.pending.clear();
   }
 
   /** 立即检查一次(工具 refresh 与测试用);已有请求在飞时复用它。 */
@@ -323,6 +372,23 @@ export class BiliLiveReminderWorld implements World {
 
   private includeRoomLink(): boolean {
     return this.cfg.includeRoomLink !== false;
+  }
+
+  /** 首次提醒之后最多再提醒几次;-1 无限,0 不重复。 */
+  private repeatCount(): number {
+    const raw = this.cfg.repeatCount === undefined ? DEFAULT_REPEAT_COUNT : Number(this.cfg.repeatCount);
+    if (!Number.isFinite(raw)) return DEFAULT_REPEAT_COUNT;
+    if (raw === -1) return -1;
+    if (raw <= 0) return 0;
+    return Math.min(MAX_REPEAT_COUNT, Math.floor(raw));
+  }
+
+  private repeatIntervalMs(): number {
+    const raw = this.cfg.repeatIntervalSec === undefined
+      ? DEFAULT_REPEAT_SECONDS
+      : Number(this.cfg.repeatIntervalSec);
+    if (!Number.isFinite(raw)) return DEFAULT_REPEAT_SECONDS * 1000;
+    return Math.min(MAX_REPEAT_SECONDS, Math.max(MIN_REPEAT_SECONDS, Math.round(raw))) * 1000;
   }
 
   /** `本场开播于 10-30 00:06`;接口没给开播时间时返回空串。 */
@@ -396,7 +462,14 @@ export class BiliLiveReminderWorld implements World {
     for (const uid of [...this.snapshots.keys()]) {
       if (!followed.has(uid)) this.snapshots.delete(uid);
     }
-    for (const [uid, snapshot] of incoming) this.snapshots.set(uid, snapshot);
+    for (const uid of [...this.pending.keys()]) {
+      if (!followed.has(uid)) this.pending.delete(uid);
+    }
+    for (const [uid, snapshot] of incoming) {
+      this.snapshots.set(uid, snapshot);
+      // 下播后不再重复提醒。
+      if (!snapshot.live) this.pending.delete(uid);
+    }
 
     if (!this.baselineReady) {
       for (const uid of uids) {
@@ -413,6 +486,7 @@ export class BiliLiveReminderWorld implements World {
       }
       this.notifyOnStart = desired;
       this.baselineReady = true;
+      await this.repeatDue(uids, incoming);
       return;
     }
 
@@ -443,6 +517,7 @@ export class BiliLiveReminderWorld implements World {
       if (live.length > 0) await this.pushSummary(live, 'current');
     }
     this.notifyOnStart = desired;
+    await this.repeatDue(uids, incoming);
   }
 
   private async pushLive(snapshot: LiveSnapshot): Promise<void> {
@@ -475,13 +550,18 @@ export class BiliLiveReminderWorld implements World {
       },
       { trigger: 'flush' },
     );
+    this.pending.set(snapshot.uid, {
+      snapshot,
+      lastSentAt: this.now(),
+      repeats: 0,
+    });
   }
 
   private async pushSummary(live: LiveSnapshot[], kind: SummaryKind): Promise<void> {
     const host = this.host;
     if (!host) return;
     host.log.info(`B 站开播提醒:现在有 ${live.length} 位关注的主播在播。`);
-    const checkedAt = this.formatLiveTime(Math.floor(Date.now() / 1000));
+    const checkedAt = this.formatLiveTime(Math.floor(this.now() / 1000));
     const linkNote = this.includeRoomLink() ? '' : '（播报链接已关闭）';
     const lines = live.map(
       (snapshot) =>
@@ -500,12 +580,66 @@ export class BiliLiveReminderWorld implements World {
       },
       { trigger: 'flush' },
     );
+    const sentAt = this.now();
+    for (const snapshot of live) {
+      this.pending.set(snapshot.uid, { snapshot, lastSentAt: sentAt, repeats: 0 });
+    }
   }
 
-  /**
-   * 关注管理面板的数据面:列表、按 UID 新增、按 UID 删除。
-   * 只改 `worlds.bili-live-reminder.uids`,不写文件;解析昵称与房间号仍走公开接口。
-   */
+  /** 按配置对仍未确认、仍在播的提醒发重复提醒。 */
+  private async repeatDue(uids: number[], incoming: Map<number, LiveSnapshot>): Promise<void> {
+    const count = this.repeatCount();
+    if (count === 0) return;
+    const interval = this.repeatIntervalMs();
+    const now = this.now();
+    for (const uid of uids) {
+      const snapshot = incoming.get(uid);
+      const pending = this.pending.get(uid);
+      if (!snapshot || !snapshot.live || !pending) continue;
+      if (snapshot.liveTime !== pending.snapshot.liveTime) continue;
+      if (count !== -1 && pending.repeats >= count) continue;
+      if (now - pending.lastSentAt < interval) continue;
+      await this.pushRepeat(pending);
+    }
+  }
+
+  private async pushRepeat(pending: PendingReminder): Promise<void> {
+    const host = this.host;
+    if (!host) return;
+    const snapshot = pending.snapshot;
+    const area = snapshot.area ? `（${snapshot.area}）` : '';
+    const startedAt = this.formatLiveTime(snapshot.liveTime);
+    const session = startedAt ? `（本场开播于 ${startedAt}）` : '';
+    const title = snapshot.title ? `:「${snapshot.title}」` : '';
+    const link = this.includeRoomLink() ? ` ${roomLink(snapshot.roomId)}` : '';
+    const linkNote = this.includeRoomLink() ? '' : '（播报链接已关闭,本条不附链接）';
+    const repeatNo = pending.repeats + 1;
+    host.log.info(
+      `B 站开播提醒:第 ${repeatNo} 次重复提醒 ${snapshot.uname}(UID ${snapshot.uid})。`,
+    );
+    await host.pushEvent(
+      {
+        type: `${WORLD_ID}.repeat`,
+        ts: nowIso(this.timezone),
+        source: WORLD_ID,
+        senderKey: `${WORLD_ID}:${snapshot.uid}:repeat`,
+        text: `再提醒一次:B 站主播「${snapshot.uname}」还在播${session}${title}${area}${link}${linkNote}`,
+        meta: {
+          uid: snapshot.uid,
+          roomId: snapshot.roomId,
+          uname: snapshot.uname,
+          title: snapshot.title,
+          area: snapshot.area,
+          liveTime: snapshot.liveTime,
+          repeat: repeatNo,
+        },
+      },
+      { trigger: 'flush' },
+    );
+    pending.repeats = repeatNo;
+    pending.lastSentAt = this.now();
+  }
+
   private async invokePanel(panel: string, method: string, args: unknown[]): Promise<unknown> {
     if (panel !== 'subscriptions') throw new Error(`unknown panel: ${panel}`);
     const first = Array.isArray(args) ? args[0] : undefined;
@@ -544,6 +678,7 @@ export class BiliLiveReminderWorld implements World {
           this.persistConfig({ uids: serializeUids(current.filter((item) => item !== uid)) });
           this.baseline.delete(uid);
           this.snapshots.delete(uid);
+          this.pending.delete(uid);
         }
         return this.subscriptionView();
       }
@@ -686,7 +821,27 @@ export class BiliLiveReminderWorld implements World {
     this.persistConfig({ uids: serializeUids(current.filter((item) => item !== uid)) });
     this.baseline.delete(uid);
     this.snapshots.delete(uid);
+    this.pending.delete(uid);
     return `已取消关注 UID ${uid}${snapshot ? `(${snapshot.uname})` : ''}。现在关注 ${current.length - 1} 位。`;
+  }
+
+  /** 「知道了」:停止对一位或全部待确认提醒的重复。 */
+  private async ackTool(args: Record<string, unknown>): Promise<string | ToolOutcome> {
+    let uid: number | null = null;
+    if (args.uid !== undefined && args.uid !== null) {
+      uid = toUid(args.uid);
+      if (uid === null) return { text: UID_RANGE_ERROR, failed: true };
+    }
+    const name = typeof args.name === 'string' ? args.name.trim() : '';
+    const targets: Array<{ uid: number; uname: string }> = [];
+    for (const [key, pending] of this.pending) {
+      if (uid !== null && key !== uid) continue;
+      if (name !== '' && !pending.snapshot.uname.includes(name)) continue;
+      targets.push({ uid: key, uname: pending.snapshot.uname });
+    }
+    for (const target of targets) this.pending.delete(target.uid);
+    if (targets.length === 0) return '当前没有待确认的提醒。';
+    return `已确认 ${targets.length} 位主播的提醒(${targets.map((target) => target.uname).join('、')}),不会再重复。`;
   }
 
   private async lookup(uid: number): Promise<LookupResult> {

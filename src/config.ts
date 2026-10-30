@@ -7,6 +7,11 @@ export const MAX_FOLLOWED_UIDS = 50;
 export const MIN_POLL_SECONDS = 30;
 export const MAX_POLL_SECONDS = 600;
 export const DEFAULT_POLL_SECONDS = 60;
+export const MIN_REPEAT_SECONDS = 30;
+export const MAX_REPEAT_SECONDS = 3600;
+export const DEFAULT_REPEAT_SECONDS = 300;
+export const DEFAULT_REPEAT_COUNT = 2;
+export const MAX_REPEAT_COUNT = 10;
 
 /** config.json 的 worlds.bili-live-reminder 段。默认禁用,由 bot 声明或部署配置启用。 */
 export interface BiliLiveReminderConfigSection {
@@ -19,6 +24,10 @@ export interface BiliLiveReminderConfigSection {
   notifyAlreadyLiveOnStart: boolean;
   /** Coo 的播报与工具回执里是否附带直播间链接;每次输出现读。 */
   includeRoomLink: boolean;
+  /** 首次提醒之后最多再提醒几次;-1 无限,0 不重复,1–10 指定次数。 */
+  repeatCount: number;
+  /** 未确认时两次重复提醒之间的间隔,秒。 */
+  repeatIntervalSec: number;
 }
 
 export const BILI_LIVE_REMINDER_DEFAULTS: BiliLiveReminderConfigSection = {
@@ -27,6 +36,8 @@ export const BILI_LIVE_REMINDER_DEFAULTS: BiliLiveReminderConfigSection = {
   pollIntervalSec: DEFAULT_POLL_SECONDS,
   notifyAlreadyLiveOnStart: true,
   includeRoomLink: true,
+  repeatCount: DEFAULT_REPEAT_COUNT,
+  repeatIntervalSec: DEFAULT_REPEAT_SECONDS,
 };
 
 /** World 配置的 JSON Schema 声明;每个路径都必须落在 worlds.bili-live-reminder. 段内。 */
@@ -61,6 +72,24 @@ export function biliLiveReminderConfigGroup(language: Language): ConfigGroup {
           title: t.includeRoomLinkTitle,
           description: t.includeRoomLinkDescription,
           'x-hot': true,
+        },
+        'worlds.bili-live-reminder.repeatCount': {
+          type: 'integer',
+          title: t.repeatCountTitle,
+          description: t.repeatCountDescription,
+          minimum: -1,
+          maximum: MAX_REPEAT_COUNT,
+          'x-hot': true,
+        },
+        'worlds.bili-live-reminder.repeatIntervalSec': {
+          type: 'integer',
+          title: t.repeatIntervalTitle,
+          description: t.repeatIntervalDescription,
+          minimum: MIN_REPEAT_SECONDS,
+          maximum: MAX_REPEAT_SECONDS,
+          multipleOf: 10,
+          'x-hot': true,
+          'x-suffix': t.suffixSeconds,
         },
       },
     },

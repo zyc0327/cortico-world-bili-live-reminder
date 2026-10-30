@@ -4,7 +4,7 @@ import { pick, type Language } from 'cortico/core/language.ts';
 const zh = {
   moduleLabel: 'B 站开播提醒',
   configTitle: 'B 站开播提醒 · 检查设置',
-  configDescription: '关注列表在 World 页的「关注管理」面板里新增和删除;这里调检查间隔、启动提醒与播报链接。改完一项后请停留约 1 秒,看到「✓ 已写回 config.json」再离开本页——Coopanion 会在切换页面时丢弃尚未提交的修改。',
+  configDescription: '关注列表在 World 页的「关注管理」面板里新增和删除;这里调检查间隔、启动提醒、播报链接与重复提醒。改完一项后请停留约 1 秒,看到「✓ 已写回 config.json」再离开本页——Coopanion 会在切换页面时丢弃尚未提交的修改。',
   panelTitle: '关注管理',
   panelDescription: '输入一位主播的 UID 后点「新增」。列表显示昵称、直播间号与当前状态;点「删除」取消提醒。启动时是否汇总已在播的主播,在「配置」里打开。',
   intervalTitle: '检查间隔(秒)',
@@ -13,6 +13,10 @@ const zh = {
   notifyOnStartDescription: '默认打开。启动后的第一次检查会把已经在播的主播汇总成一条提醒;运行中打开会在下一次检查发一条「当前在播汇总」;关闭后不再发这类汇总。',
   includeRoomLinkTitle: '播报时附带直播间链接',
   includeRoomLinkDescription: '打开后,Coo 在开播提醒、bili_live_status 与关注回执里带上直播间链接;关闭则只报主播名和标题。World 页的关注列表不受影响。',
+  repeatCountTitle: '重复提醒次数',
+  repeatCountDescription: '-1 为无限重复,0 为不重复;1–10 表示首次提醒之后最多再提醒几次。默认 2,确认「知道了」后立即停止。',
+  repeatIntervalTitle: '重复提醒间隔(秒)',
+  repeatIntervalDescription: '未确认时每隔多少秒再提醒一次。范围 30–3600 秒。',
   suffixSeconds: '秒',
   lampLabel: '开播检查',
   lampStopped: '未挂载或已停用。',
@@ -26,12 +30,14 @@ const zh = {
   varFollowedDescription: '当前关注的主播数量,此刻的值。',
   varLinkDescription: '播报时是否附带直播间链接(开/关),此刻的值。',
   varStartupDescription: '启动时已在播是否提醒(开/关),此刻的值。',
+  varRepeatCountDescription: '重复提醒次数(-1/0/1–10),此刻的值。',
+  varRepeatIntervalDescription: '重复提醒间隔(秒),此刻的值。',
 };
 
 const en: typeof zh = {
   moduleLabel: 'Bilibili Live Reminders',
   configTitle: 'Bilibili Live Reminders · Checks',
-  configDescription: 'Manage follows in the "Follows" panel on the World page; this section sets the check interval, the startup reminder and the room-link option. After editing a row, wait about 1 second for the "✓ written to config.json" message before leaving the page — Coopanion discards pending edits when you switch pages.',
+  configDescription: 'Manage follows in the "Follows" panel on the World page; this section sets the check interval, startup reminder, room-link option and repeat reminders. After editing a row, wait about 1 second for the "✓ written to config.json" message before leaving the page — Coopanion discards pending edits when you switch pages.',
   panelTitle: 'Follows',
   panelDescription: 'Enter a streamer UID and press Add. The list shows the nickname, room ID and current status; Delete stops the reminders. Turn the startup summary on or off in Settings.',
   intervalTitle: 'Check interval (seconds)',
@@ -40,6 +46,10 @@ const en: typeof zh = {
   notifyOnStartDescription: 'On by default. The first check after startup sends one summary of streamers already live; turning it on while running sends a "currently live" summary on the next check; turning it off stops these summaries.',
   includeRoomLinkTitle: 'Include room links in messages',
   includeRoomLinkDescription: 'When on, Coo includes the live-room link in reminders, bili_live_status and follow receipts; when off, only the name and title. The follows list on the World page is unaffected.',
+  repeatCountTitle: 'Repeat reminder count',
+  repeatCountDescription: '-1 repeats forever, 0 does not repeat; 1–10 is how many more times to remind after the first. Default 2; acknowledging with "知道了" stops at once.',
+  repeatIntervalTitle: 'Repeat interval (seconds)',
+  repeatIntervalDescription: 'Seconds between repeat reminders while unacknowledged. Range 30–3600.',
   suffixSeconds: 's',
   lampLabel: 'Live check',
   lampStopped: 'Not mounted or disabled.',
@@ -53,6 +63,8 @@ const en: typeof zh = {
   varFollowedDescription: 'Number of streamers currently followed, right now.',
   varLinkDescription: 'Whether messages include live-room links (on/off), right now.',
   varStartupDescription: 'Whether the startup summary is on (on/off), right now.',
+  varRepeatCountDescription: 'Repeat reminder count (-1/0/1–10), right now.',
+  varRepeatIntervalDescription: 'Repeat reminder interval in seconds, right now.',
 };
 
 export const text = (language: Language) => pick(language, { zh, en });

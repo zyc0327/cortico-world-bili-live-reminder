@@ -10,6 +10,7 @@
 - 打开「启动时已在播也提醒」后，启动后的第一次检查会提示现在谁在播（`bili-live-reminder.startup`）；这个开关**默认打开**，运行中打开会在下一次检查补一条当前在播情况（`bili-live-reminder.current`）。提示语要求 Coo 用自然措辞，标题用「」括起来，不要出现「启动检查」「汇总」这类正式字眼。
 - 「播报时附带直播间链接」默认打开，控制 Coo 的提醒、`bili_live_status` 和关注回执里是否带 `https://live.bilibili.com/<房间号>`；关闭时事件和回执会标注「播报链接已关闭」，提示词也禁止 Coo 从上下文补链接。面板列表始终显示房间号链接。
 - `bili_live_status` 可以随时查关注列表、谁在播、上次检查时间和最近错误；传 `refresh: true` 立即查一次。
+- 有 desktop-pet 时，提醒会尽量用 `pet_ask` 显示带「知道了」按钮的气泡；没确认时按配置重复提醒，点「知道了」或回复确认后停止。
 
 提醒走 Coo 的对话，不是 Windows 系统通知；Coopanion 没开时不会有提醒。
 
@@ -48,6 +49,8 @@ World 页上的「关注管理」面板（`src/webui/client.ts`，构建到 `dis
 | `pollIntervalSec` | `60` | 检查间隔，30–600 秒；从下一次检查起按新间隔运行 |
 | `notifyAlreadyLiveOnStart` | `true` | 启动时已在播也发一条汇总；热开关，运行中打开会在下一次检查发「当前在播汇总」 |
 | `includeRoomLink` | `true` | Coo 的播报与工具回执里是否附带直播间链接；面板列表不受影响 |
+| `repeatCount` | `2` | 首次提醒之后最多再提醒几次：`-1` 无限，`0` 不重复，`1–10` 指定次数 |
+| `repeatIntervalSec` | `300` | 未确认时两次重复提醒的间隔，30–3600 秒；在每轮检查时判断 |
 
 ## 工具
 
@@ -56,6 +59,7 @@ World 页上的「关注管理」面板（`src/webui/client.ts`，构建到 `dis
 | `bili_live_status` | 只读：关注列表、各自状态、上次检查时间与错误；`refresh: true` 立即查 |
 | `bili_live_follow` | 按 UID 关注；回执带主播名与当前是否在播 |
 | `bili_live_unfollow` | 按 UID 取消关注 |
+| `bili_live_ack` | 确认「知道了」：停止对一位或全部待确认提醒的重复 |
 
 ## 事件
 
@@ -64,6 +68,14 @@ World 页上的「关注管理」面板（`src/webui/client.ts`，构建到 `dis
 | `bili-live-reminder.live` | flush | 关注的主播从不播变直播中，或同一场换了开播时间 |
 | `bili-live-reminder.startup` | flush | 启动后的第一次检查汇总已在播的主播；仅在开关打开时推出 |
 | `bili-live-reminder.current` | flush | 运行中打开启动提醒后，下一次检查汇总当前在播的主播；不是刚刚开播 |
+| `bili-live-reminder.repeat` | flush | 同一场开播在确认「知道了」之前的重复提醒；按 `repeatCount` / `repeatIntervalSec` 推出 |
+
+## 「知道了」按钮与重复提醒
+
+- 提醒优先通过 desktop-pet 的 `pet_ask` 显示成带选项的气泡，选项包含「知道了」；没有 `pet_ask` 时退回文字提醒。
+- 用户点「知道了」或回复确认后，Coo 调用 `bili_live_ack`：单条带主播名/UID，汇总不带参数确认全部。
+- 未确认时，World 在后续检查中按 `repeatCount` 和 `repeatIntervalSec` 发 `bili-live-reminder.repeat`；主播下播或确认后停止。
+- 重复提醒依赖 Coo 按提示词调用 `pet_ask` 和 `bili_live_ack`；如果关闭了 desktop-pet，就只能用文字提醒和文字确认。
 
 ## 装进 Coopanion 试用（本机目录）
 

@@ -7,12 +7,20 @@ export const BILI_LIVE_REMINDER: WorldDefinition<BiliLiveReminderConfigSection> 
   label: 'B 站开播提醒',
   // `ctx.cfg` 是 `worlds.bili-live-reminder` 的活引用:UID 列表与检查间隔热改即生效。
   defaults: () => ({ ...BILI_LIVE_REMINDER_DEFAULTS }),
-  create: (ctx) =>
-    new BiliLiveReminderWorld({
+  create: (ctx) => {
+    // 老配置段没有新加的重复提醒字段:补上默认值,让 WebUI 显示的值和运行行为一致。
+    const patch: Partial<BiliLiveReminderConfigSection> = {};
+    if (ctx.cfg.repeatCount === undefined) patch.repeatCount = BILI_LIVE_REMINDER_DEFAULTS.repeatCount;
+    if (ctx.cfg.repeatIntervalSec === undefined) {
+      patch.repeatIntervalSec = BILI_LIVE_REMINDER_DEFAULTS.repeatIntervalSec;
+    }
+    if (Object.keys(patch).length > 0) ctx.persist(patch);
+    return new BiliLiveReminderWorld({
       cfg: ctx.cfg,
       timezone: ctx.timezone,
-      persist: (patch) => ctx.persist(patch),
-    }),
+      persist: (next) => ctx.persist(next),
+    });
+  },
   // 自描述:可能出现的全部工具与会推出的全部事件,不进提示词。
   describe: {
     tools: describeTools(BILI_LIVE_REMINDER_TOOL_DECLS, {
@@ -27,6 +35,10 @@ export const BILI_LIVE_REMINDER: WorldDefinition<BiliLiveReminderConfigSection> 
       bili_live_unfollow: {
         zh: '按 UID 取消关注,不再提醒这位主播。',
         en: 'Stops following a Bilibili streamer by UID, so the reminders end.',
+      },
+      bili_live_ack: {
+        zh: '确认「知道了」:停止对一位或全部待确认提醒的重复提醒。',
+        en: 'Acknowledges one or all pending reminders so the World stops repeating them.',
       },
     }),
     events: [
@@ -51,6 +63,14 @@ export const BILI_LIVE_REMINDER: WorldDefinition<BiliLiveReminderConfigSection> 
         description: {
           zh: '运行中把「启动时已在播也提醒」打开时,下一次检查汇总当前在播的主播;不是刚刚开播。',
           en: 'The startup option was turned on while running; the next check summarizes who is live now. Not a new go-live.',
+        },
+        trigger: 'flush',
+      },
+      {
+        type: `${WORLD_ID}.repeat`,
+        description: {
+          zh: '同一次开播在用户确认「知道了」之前的重复提醒;按配置的次数与间隔推出。',
+          en: 'A repeat reminder for the same live session until the user acknowledges it; follows the configured count and interval.',
         },
         trigger: 'flush',
       },

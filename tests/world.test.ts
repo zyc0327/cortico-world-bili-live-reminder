@@ -69,6 +69,7 @@ interface MadeWorld {
 function makeWorld(
   overrides: Partial<BiliLiveReminderConfigSection> = {},
   fetchImpl?: FetchLike,
+  now?: () => number,
 ): MadeWorld {
   const cfg: BiliLiveReminderConfigSection = { ...BILI_LIVE_REMINDER_DEFAULTS, ...overrides };
   const world = new BiliLiveReminderWorld({
@@ -79,6 +80,7 @@ function makeWorld(
     },
     fetch: fetchImpl,
     timeoutMs: 1_000,
+    now,
   });
   return { world, cfg };
 }
@@ -140,6 +142,8 @@ describe('B 站开播提醒 World', () => {
     expect(vars).toMatchObject({
       'bili_live_reminder.includeRoomLink': '开',
       'bili_live_reminder.notifyOnStart': '开',
+      'bili_live_reminder.repeatCount': '2',
+      'bili_live_reminder.repeatIntervalSec': '300',
     });
     const content = readFileSync(prompt!.path, 'utf8');
     for (const name of templateVarNames(content)) {
@@ -255,6 +259,112 @@ describe('B 站开播提醒 World', () => {
     expect(host.events[0].text).toContain('现在有 1 位关注的主播在播');
     expect(host.events[0].text).not.toContain('当前在播汇总');
     expect(host.events[0].text).not.toContain('启动检查');
+  });
+
+  it('重复提醒按配置的次数与间隔发送', async () => {
+    let clock = 1_000_000;
+    const { world } = makeWorld(
+      { uids: '2', notifyAlreadyLiveOnStart: true, repeatCount: 1, repeatIntervalSec: 30 },
+      entriesFetcher(() => ({
+        '2': statusEntry(2, { live_status: 1, live_time: 100 }),
+      })),
+      () => clock,
+    );
+    const host = await startWorld(world);
+    expect(host.events.map((event) => event.type)).toEqual(['bili-live-reminder.startup']);
+
+    clock += 30_000;
+    await world.pollNow();
+    expect(host.events.map((event) => event.type)).toEqual([
+      'bili-live-reminder.startup',
+      'bili-live-reminder.repeat',
+    ]);
+    expect(host.events[1].text).toContain('再提醒一次');
+    expect(host.events[1].text).toContain('还在播');
+    expect(host.events[1].text).toContain('「标题2」');
+
+    clock += 30_000;
+    await world.pollNow();
+    expect(host.events).toHaveLength(2);
+  });
+
+  it('重复提醒次数为 0 时不重复', async () => {
+    let clock = 1_000_000;
+    const { world } = makeWorld(
+      { uids: '2', notifyAlreadyLiveOnStart: true, repeatCount: 0, repeatIntervalSec: 30 },
+      entriesFetcher(() => ({
+        '2': statusEntry(2, { live_status: 1, live_time: 100 }),
+      })),
+      () => clock,
+    );
+    const host = await startWorld(world);
+    clock += 60_000;
+    await world.pollNow();
+    expect(host.events.map((event) => event.type)).toEqual(['bili-live-reminder.startup']);
+  });
+
+  it('重复提醒次数为 -1 时持续发送', async () => {
+    let clock = 1_000_000;
+    const { world } = makeWorld(
+      { uids: '2', notifyAlreadyLiveOnStart: true, repeatCount: -1, repeatIntervalSec: 30 },
+      entriesFetcher(() => ({
+        '2': statusEntry(2, { live_status: 1, live_time: 100 }),
+      })),
+      () => clock,
+    );
+    const host = await startWorld(world);
+    for (let round = 0; round < 3; round += 1) {
+      clock += 30_000;
+      await world.pollNow();
+    }
+    expect(host.events.filter((event) => event.type === 'bili-live-reminder.repeat')).toHaveLength(3);
+  });
+
+  it('bili_live_ack 确认后停止重复', async () => {
+    let clock = 1_000_000;
+    const { world } = makeWorld(
+      { uids: '2', notifyAlreadyLiveOnStart: true, repeatCount: -1, repeatIntervalSec: 30 },
+      entriesFetcher(() => ({
+        '2': statusEntry(2, { live_status: 1, live_time: 100 }),
+      })),
+      () => clock,
+    );
+    const host = await startWorld(world);
+    clock += 30_000;
+    await world.pollNow();
+    expect(host.events.filter((event) => event.type === 'bili-live-reminder.repeat')).toHaveLength(1);
+
+    const receipt = await tool(world, 'bili_live_ack').handler({ name: '主播2' }, call);
+    expect(String(receipt)).toContain('已确认 1 位');
+
+    clock += 60_000;
+    await world.pollNow();
+    expect(host.events.filter((event) => event.type === 'bili-live-reminder.repeat')).toHaveLength(1);
+  });
+
+  it('bili_live_ack 不带参数确认全部待确认提醒', async () => {
+    let clock = 1_000_000;
+    const { world } = makeWorld(
+      { uids: '2, 7777', notifyAlreadyLiveOnStart: true, repeatCount: -1, repeatIntervalSec: 30 },
+      entriesFetcher(() => ({
+        '2': statusEntry(2, { live_status: 1, live_time: 100 }),
+        '7777': statusEntry(7777, { room_id: 7_047_858, live_status: 1, live_time: 200 }),
+      })),
+      () => clock,
+    );
+    const host = await startWorld(world);
+    const receipt = await tool(world, 'bili_live_ack').handler({}, call);
+    expect(String(receipt)).toContain('已确认 2 位');
+
+    clock += 60_000;
+    await world.pollNow();
+    expect(host.events.filter((event) => event.type === 'bili-live-reminder.repeat')).toHaveLength(0);
+  });
+
+  it('没有待确认提醒时 bili_live_ack 返回提示', async () => {
+    const { world } = makeWorld();
+    const receipt = await tool(world, 'bili_live_ack').handler({}, call);
+    expect(String(receipt)).toContain('没有待确认的提醒');
   });
 
   it('没有关注时完全不发请求', async () => {
@@ -469,6 +579,8 @@ describe('B 站开播提醒 World', () => {
   it('默认打开启动提醒并附带直播间链接', () => {
     expect(BILI_LIVE_REMINDER_DEFAULTS.notifyAlreadyLiveOnStart).toBe(true);
     expect(BILI_LIVE_REMINDER_DEFAULTS.includeRoomLink).toBe(true);
+    expect(BILI_LIVE_REMINDER_DEFAULTS.repeatCount).toBe(2);
+    expect(BILI_LIVE_REMINDER_DEFAULTS.repeatIntervalSec).toBe(300);
   });
 
   it('启动提醒开关状态反映当前实例,并标出待重启', async () => {
@@ -486,20 +598,26 @@ describe('B 站开播提醒 World', () => {
     expect(view.notifyOnStartPending).toBe(true);
   });
 
-  it('提示词变量反映链接与启动提醒开关', async () => {
+  it('提示词变量反映链接、启动与重复开关', async () => {
     const { world, cfg } = makeWorld();
     let vars = await world.envPromptVars();
     expect(vars).toMatchObject({
       'bili_live_reminder.includeRoomLink': '开',
       'bili_live_reminder.notifyOnStart': '开',
+      'bili_live_reminder.repeatCount': '2',
+      'bili_live_reminder.repeatIntervalSec': '300',
     });
 
     cfg.includeRoomLink = false;
     cfg.notifyAlreadyLiveOnStart = false;
+    cfg.repeatCount = -1;
+    cfg.repeatIntervalSec = 60;
     vars = await world.envPromptVars();
     expect(vars).toMatchObject({
       'bili_live_reminder.includeRoomLink': '关',
       'bili_live_reminder.notifyOnStart': '关',
+      'bili_live_reminder.repeatCount': '-1',
+      'bili_live_reminder.repeatIntervalSec': '60',
     });
   });
 
